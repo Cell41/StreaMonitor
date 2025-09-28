@@ -7,7 +7,7 @@ from streamonitor.managers.zmqmanager import ZMQManager
 from streamonitor.managers.outofspace_detector import OOSDetector
 from streamonitor.clean_exit import CleanExit
 import streamonitor.sites  # must have
-
+from parameters import IS_SERVICE
         
 def is_docker():
     path = '/proc/self/cgroup'
@@ -29,7 +29,7 @@ def main():
     oos_detector = OOSDetector(streamers)
     oos_detector.start()
 
-    if not is_docker():
+    if not is_docker() and not IS_SERVICE:
         console_manager = CLIManager(streamers)
         console_manager.start()
 
