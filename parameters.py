@@ -7,7 +7,7 @@ if os.path.exists('.env'):
     environ.Env.read_env('.env')
 
 
-DOWNLOADS_DIR = env.str("STRMNTR_DOWNLOAD_DIR", "downloads")
+DOWNLOADS_DIR = env.str("STRMNTR_DOWNLOAD_DIR", "/mnt/data/disk5/streamonitor")
 MIN_FREE_DISK_PERCENT = env.float("STRMNTR_MIN_FREE_SPACE", 5.0)  # in %
 DEBUG = env.bool("STRMNTR_DEBUG", False)
 
@@ -29,7 +29,7 @@ WANTED_RESOLUTION_PREFERENCE = env.str("STRMNTR_RESOLUTION_PREF", 'closest')
 
 # Specify output container here
 # Suggested values are 'mkv' or 'mp4'
-CONTAINER = env.str("STRMNTR_CONTAINER", 'mp4')
+CONTAINER = env.str("STRMNTR_CONTAINER", 'mkv')
 
 # Add auto-generated VR format suffix to files
 VR_FORMAT_SUFFIX = env.bool("STRMNTR_VR_FORMAT_SUFFIX", True)
@@ -46,13 +46,13 @@ VR_FORMAT_SUFFIX = env.bool("STRMNTR_VR_FORMAT_SUFFIX", True)
 # Example:
 # 1 hour
 # SEGMENT_TIME = '1:00:00'
-SEGMENT_TIME = env.str("STRMNTR_SEGMENT_TIME", None)
+SEGMENT_TIME = env.str("STRMNTR_SEGMENT_TIME", "1:00:00")
 
 # HTTP Manager configuration
 
 # Bind address for the web server
 # 0.0.0.0 for remote access from all host
-WEBSERVER_HOST = env.str("STRMNTR_HOST", "127.0.0.1")
+WEBSERVER_HOST = env.str("STRMNTR_HOST", "0.0.0.0")
 WEBSERVER_PORT = env.int("STRMNTR_PORT", 5000)
 
 # Web UI skin
