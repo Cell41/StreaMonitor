@@ -16,7 +16,7 @@ class StripChat(RoomIdBot):
     site = 'StripChat'
     siteslug = 'SC'
 
-    _bulk_update = True
+    bulk_update = True
     _static_data = None
     _main_js_data = None
     _doppio_js_data = None
@@ -59,7 +59,7 @@ class StripChat(RoomIdBot):
 
         mmp_origin = StripChat._static_data['features']['MMPExternalSourceOrigin']
         mmp_version = StripChat._static_data['featuresV2']['playerModuleExternalLoading']['mmpVersion']
-        mmp_base = f"{mmp_origin}/v{mmp_version}"
+        mmp_base = f"{mmp_origin}/{mmp_version}"
 
         r = session.get(f"{mmp_base}/main.js", headers=cls.headers)
         if r.status_code != 200:
@@ -173,7 +173,6 @@ class StripChat(RoomIdBot):
         except requests.exceptions.JSONDecodeError:
             self.log('Failed to parse JSON response')
             return None
-        self.log(data)
         return data
 
     def _update_lastInfo(self, data):
