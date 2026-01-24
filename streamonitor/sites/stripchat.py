@@ -9,7 +9,7 @@ import hashlib
 
 from streamonitor.bot import RoomIdBot
 from streamonitor.downloaders.hls import getVideoNativeHLS
-from streamonitor.enums import Status
+from streamonitor.enums import Status, Gender, COUNTRIES
 
 
 class StripChat(RoomIdBot):
@@ -23,6 +23,12 @@ class StripChat(RoomIdBot):
     _cached_keys: dict[str, bytes] = None
     _PRIVATE_STATUSES = frozenset(["private", "groupShow", "p2p", "virtualPrivate", "p2pVoice"])
     _OFFLINE_STATUSES = frozenset(["off", "idle"])
+
+    _GENDER_MAP = {
+        'female': Gender.FEMALE,
+        'male': Gender.MALE,
+        'maleFemale': Gender.BOTH
+    }
 
     if os.path.exists(_mouflon_cache_filename):
         with open(_mouflon_cache_filename) as f:
@@ -57,7 +63,6 @@ class StripChat(RoomIdBot):
 
     @classmethod
     def m3u_decoder(cls, content):
-        _mouflon_file_attr = "#EXT-X-MOUFLON:FILE:"
         _mouflon_filename = 'media.mp4'
 
         def _decode(encrypted_b64: str, key: str) -> str:
@@ -70,12 +75,25 @@ class StripChat(RoomIdBot):
 
         psch, pkey, pdkey = StripChat._getMouflonFromM3U(content)
 
+        if psch == 'v1':
+            _mouflon_file_attr = "#EXT-X-MOUFLON:FILE:"
+        elif psch == 'v2':
+            _mouflon_file_attr = "#EXT-X-MOUFLON:URI:"
+        else:
+            return None
+
         decoded = ''
         lines = content.splitlines()
         last_decoded_file = None
         for line in lines:
             if line.startswith(_mouflon_file_attr):
-                last_decoded_file = _decode(line[len(_mouflon_file_attr):], pdkey)
+                if psch == 'v1':
+                    last_decoded_file = _decode(line[len(_mouflon_file_attr):], pdkey)
+                elif psch == 'v2':
+                    uri = line[len(_mouflon_file_attr):]
+                    encoded_part = uri.split('_')[-2]
+                    decoded_part = _decode(encoded_part[::-1], pdkey)
+                    last_decoded_file = uri.replace(encoded_part, decoded_part).split('/', maxsplit=4)[4]
             elif line.endswith(_mouflon_filename) and last_decoded_file:
                 decoded += (line.replace(_mouflon_filename, last_decoded_file)) + '\n'
                 last_decoded_file = None
@@ -103,11 +121,9 @@ class StripChat(RoomIdBot):
                 psch = _mouflon[2]
                 pkey = _mouflon[3]
                 pdkey = StripChat.getMouflonDecKey(pkey)
-                if pdkey and psch == 'v1':
+                if pdkey:
                     return psch, pkey, pdkey
             _start += _mouflon_start + len(_needle)
-        if StripChat._mouflon_keys:
-            return ('v1',) + StripChat._mouflon_keys.items().__iter__().__next__()
         return None, None, None
 
     def getWebsiteURL(self):
@@ -119,7 +135,7 @@ class StripChat(RoomIdBot):
     def getPlaylistVariants(self, url):
         url = "https://edge-hls.{host}/hls/{id}{vr}/master/{id}{vr}{auto}.m3u8".format(
                 host='doppiocdn.' + random.choice(['org', 'com', 'net']),
-                id=self.lastInfo["streamName"],
+                id=self.room_id,
                 vr='_vr' if self.vr else '',
                 auto='_auto' if not self.vr else ''
             )
@@ -194,6 +210,19 @@ class StripChat(RoomIdBot):
         if error:
             return error
 
+        if 'user' in data and 'user' in data['user']:
+            model_data = data['user']['user']
+            if model_data.get('gender'):
+                self.gender = StripChat._GENDER_MAP.get(model_data.get('gender'))
+
+            if model_data.get('country'):
+                self.country = model_data.get('country', '').upper()
+            elif model_data.get('languages'):
+                for lang in model_data['languages']:
+                    if lang.upper() in COUNTRIES:
+                        self.country = lang.upper()
+                        break
+
         status = self.lastInfo['model'].get('status')
         if status == "public" and self.lastInfo["isCamAvailable"] and self.lastInfo["isCamActive"]:
             return Status.PUBLIC
@@ -224,7 +253,7 @@ class StripChat(RoomIdBot):
         for _batch_ids in [model_id_list[i:i+batch_num] for i in range(0, len(model_id_list), batch_num)]:
             session = requests.Session()
             session.headers.update(cls.headers)
-            r = session.get(base_url + '&'.join(f'modelIds[]={model_id}' for model_id in _batch_ids))
+            r = session.get(base_url + '&'.join(f'modelIds[]={model_id}' for model_id in _batch_ids), timeout=10)
 
             try:
                 data = r.json()
@@ -238,6 +267,10 @@ class StripChat(RoomIdBot):
             if not model_data:
                 streamer.setStatus(Status.UNKNOWN)
                 continue
+            if model_data.get('gender'):
+                streamer.gender = cls._GENDER_MAP.get(model_data.get('gender'))
+            if model_data.get('country'):
+                streamer.country = model_data.get('country', '').upper()
             status = model_data.get('status')
             if status == "public" and model_data.get("isOnline"):
                 streamer.setStatus(Status.PUBLIC)
